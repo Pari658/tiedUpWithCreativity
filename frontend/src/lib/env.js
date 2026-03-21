@@ -1,8 +1,5 @@
-import dotenv from 'dotenv';
-
-dotenv.config();
-
+// lib/env.js
 export const ENV = {
-  SUPABASE_URL: process.env.URL_SUPABASE,
-  SUPABASE_KEY: process.env.PK_SUPABASE
+  SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL,
+  SUPABASE_PUBLISHABLE_KEY: import.meta.env.VITE_SUPABASE_PK
 };
