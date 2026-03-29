@@ -388,9 +388,9 @@ useEffect(() => {
         {[
           { id: "home",       label: "Home",       Icon: Icons.Home , path:"/dashboard" },
           { id: "categories", label: "Categories", Icon: Icons.Grid , path:"/dashboard" },
-          { id: "orders",     label: "Orders",     Icon: Icons.Package ,path:"/dashboard/orders"},
-          { id: "account",    label: "Account",    Icon: Icons.User  ,path:"/dashboard/profile"},
-          { id: "cart",       label: "Cart",       Icon: Icons.Cart, badge: cartCount ,path:"/dashboard/cart"},
+          { id: "orders",     label: "Orders",     Icon: Icons.Package ,path:"/orders"},
+          { id: "account",    label: "Account",    Icon: Icons.User  ,path:"/profile"},
+          { id: "cart",       label: "Cart",       Icon: Icons.Cart, badge: cartCount ,path:"/cart"},
         ].map(({ id, label, Icon, badge ,path}) => (
           <button
             key={id}
