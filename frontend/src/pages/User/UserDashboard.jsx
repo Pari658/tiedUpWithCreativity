@@ -275,7 +275,7 @@ useEffect(() => {
               <span className="ud-notif-dot" />
             </button>
 
-            <button className="ud-icon-btn" aria-label="Cart" onClick={() => {navigate('/dashboard/cart')}} >
+            <button className="ud-icon-btn" aria-label="Cart" onClick={() => {navigate('/cart')}} >
               <Icons.Cart />
               {cartCount > 0 && <span className="ud-cart-count">{cartCount}</span>}
             </button>
@@ -283,7 +283,7 @@ useEffect(() => {
             <div className="ud-profile-chip">
               <div className="ud-avatar">{userName ? userName[0].toUpperCase() : "P"}</div>
               <button 
-              onClick={() => {navigate('/dashboard/profile')}} 
+              onClick={() => {navigate('/profile')}} 
               style={{ 
                 border: "none", 
                 outline: "none", 

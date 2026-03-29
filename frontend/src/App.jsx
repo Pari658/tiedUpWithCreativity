@@ -21,6 +21,8 @@ import Reviews from './pages/Admin/reviews'
 import UserDashboard from "./pages/User/UserDashboard"
 import CartPage from "./pages/User/CartPage"
 import ProfilePage from './pages/User/ProfilePage'
+import YourOrders from './pages/User/YourOrders'
+import ProfilePage from './pages/User/ProfilePage';
 import YourOrders from './pages/User/YourOrders';
 import Customize from './pages/User/Customize'
 
