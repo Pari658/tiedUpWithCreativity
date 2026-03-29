@@ -1,25 +1,27 @@
 import React from 'react'
-import { BrowserRouter as Router , Routes , Route , Navigate } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom"
+import { AuthProvider } from './context/AuthContext'
+import AppLayout from './components/layout/AppLayout'
+import ProtectedRoute, { AdminRoute } from './components/auth/protectedRoute'
 
+// Public pages
 import HomePage from "./pages/HomePage"
 import LoginPage from "./pages/LoginPage"
-import ProtectedRoute from './components/auth/protectedRoute';
 
-import Applayout from './components/layout/AppLayout';
+// Admin pages
+import AdminDashboard from './pages/Admin/AdminDashboard'
+import AddCategory from './pages/Admin/AddCategory'
+import AddProduct from './pages/Admin/AddProduct'
+import Coupons from './pages/Admin/coupons'
+import Customers from './pages/Admin/customers'
+import Orders from './pages/Admin/orders'
+import Reviews from './pages/Admin/reviews'
 
-//admin import
-import AdminDashboard from './pages/Admin/AdminDashboard';
-import AddCategory from './pages/Admin/AddCategory';
-import AddProduct from './pages/Admin/AddProduct';
-import Coupons from './pages/Admin/coupons';
-import Customers from './pages/Admin/customers';
-import Orders from './pages/Admin/orders';
-import Reviews from './pages/Admin/reviews';
-
-
-// user import
+// User pages
 import UserDashboard from "./pages/User/UserDashboard"
 import CartPage from "./pages/User/CartPage"
+import ProfilePage from './pages/User/ProfilePage'
+import YourOrders from './pages/User/YourOrders'
 import ProfilePage from './pages/User/ProfilePage';
 import YourOrders from './pages/User/YourOrders';
 import Customize from './pages/User/Customize'
@@ -27,30 +29,56 @@ import Customize from './pages/User/Customize'
 
 const App = () => {
   return (
-   <Router>
-      <Routes>
-          <Route path = "/" element = {<HomePage />} />
-          <Route path = "/login" element = {<LoginPage />} />
+    <AuthProvider>
+      <Router>
+        <Routes>
 
-          <Route path = "/admin" element = {<Applayout />} >
-                <Route path = "dashboard" element={<AdminDashboard />} />
-                <Route path = "add-product" element = {<AddProduct />} />
-                <Route path = "add-category" element = {<AddCategory />} />
-                <Route path = "orders" element = {<Orders />} />
-                <Route path = "customers" element = {<Customers />} />
-                <Route path = "reviews" element = {<Reviews />} />
-                <Route path = "coupons" element = {<Coupons />} />
+          {/* Public */}
+          <Route path="/" element={<HomePage />} />
+          <Route path="/login" element={<LoginPage />} />
+
+          {/* Admin — with layout, protected */}
+          <Route path="/admin" element={<AppLayout />}>
+            <Route path="dashboard" element={
+              <AdminRoute><AdminDashboard /></AdminRoute>
+            }/>
+            <Route path="add-product" element={
+              <AdminRoute><AddProduct /></AdminRoute>
+            }/>
+            <Route path="add-category" element={
+              <AdminRoute><AddCategory /></AdminRoute>
+            }/>
+            <Route path="orders" element={
+              <AdminRoute><Orders /></AdminRoute>
+            }/>
+            <Route path="customers" element={
+              <AdminRoute><Customers /></AdminRoute>
+            }/>
+            <Route path="reviews" element={
+              <AdminRoute><Reviews /></AdminRoute>
+            }/>
+            <Route path="coupons" element={
+              <AdminRoute><Coupons /></AdminRoute>
+            }/>
           </Route>
 
-          <Route path = "/dashboard" element = {<ProtectedRoute><UserDashboard /></ProtectedRoute>} />
-					<Route path = "/dashboard/cart" element = {<CartPage />} />
-					<Route path = "/dashboard/profile" element = {<ProfilePage />} />
-					<Route path = "/dashboard/orders" element = {<YourOrders />} />
-					<Route path = "/dashboard/customize" element = {<Customize />} />
+          {/* User — protected */}
+          <Route path="/dashboard" element={
+            <ProtectedRoute><UserDashboard /></ProtectedRoute>
+          }/>
+          <Route path="/cart" element={
+            <ProtectedRoute><CartPage /></ProtectedRoute>
+          }/>
+          <Route path="/profile" element={
+            <ProtectedRoute><ProfilePage /></ProtectedRoute>
+          }/>
+          <Route path="/orders" element={
+            <ProtectedRoute><YourOrders /></ProtectedRoute>
+          }/>
 
-
-      </Routes>
-   </Router>
+        </Routes>
+      </Router>
+    </AuthProvider>
   )
 }
 
