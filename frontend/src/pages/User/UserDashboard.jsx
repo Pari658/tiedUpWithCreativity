@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import "../../assets/css/User.css";
 import { useNavigate } from 'react-router-dom'
 import { supabase } from "../../supabase/supabaseClient";
@@ -29,16 +29,6 @@ const Icons = {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
       <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
-    </svg>
-  ),
-  Heart: ({ filled }) => (
-    <svg viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-    </svg>
-  ),
-  Star: () => (
-    <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
     </svg>
   ),
   CartPlus: () => (
@@ -77,17 +67,6 @@ const Icons = {
       <polyline points="12 5 19 12 12 19" />
     </svg>
   ),
-  SortAsc: () => (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="15" y2="12" />
-      <line x1="3" y1="18" x2="9" y2="18" />
-    </svg>
-  ),
-  Filter: () => (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
-    </svg>
-  ),
   Package: () => (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M16.5 9.4l-9-5.19" />
@@ -98,21 +77,6 @@ const Icons = {
   ),
 };
 
-// ══════════════════════════════════════════════════════════════
-// STAR RATING
-// ══════════════════════════════════════════════════════════════
-function StarRating({ rating }) {
-  return (
-    <div className="ud-stars">
-      {[1, 2, 3, 4, 5].map((s) => (
-        <svg key={s} className={`ud-star ${s <= Math.floor(rating) ? "filled" : s - 0.5 <= rating ? "half" : "empty"}`}
-          viewBox="0 0 24 24" fill="currentColor">
-          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-        </svg>
-      ))}
-    </div>
-  );
-}
 
 // ══════════════════════════════════════════════════════════════
 // PRODUCT CARD
@@ -183,7 +147,35 @@ export default function UserDashboard() {
   const [activeNav, setActiveNav]           = useState("home");
   const [cartCount, setCartCount]           = useState(0);
   const [toast, setToast]                   = useState(null);
+  const[userName, setName]                     = useState(null);
   // Fetch categories
+
+  const fetchUser = async () => {
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    navigate('/login');
+    return;
+  }
+
+  // 1. Fetch the name from your custom 'users' table
+  const { data, error } = await supabase
+    .from('users')
+    .select('name')
+    .eq('user_id', user.id) // Use the auth ID to find the row
+    .single();
+
+  if (error) {
+    console.error("Error fetching user name:", error);
+  } else if (data) {
+    setName(data.name);
+  }
+};
+ useEffect(() => {
+    fetchUser();
+  }, []);
+  
+  
   const fetchCategories = async () => {
     const { data, error } = await supabase
       .from("category")
@@ -289,7 +281,7 @@ useEffect(() => {
             </button>
 
             <div className="ud-profile-chip">
-              <div className="ud-avatar">P</div>
+              <div className="ud-avatar">{userName ? userName[0].toUpperCase() : "P"}</div>
               <button 
               onClick={() => {navigate('/dashboard/profile')}} 
               style={{ 
@@ -299,7 +291,7 @@ useEffect(() => {
                 cursor: "pointer" 
               }}
             >
-              <span className="ud-profile-name">Priya</span>
+              <span className="ud-profile-name">{userName}</span>
             </button>
             </div>
           </div>
@@ -369,14 +361,7 @@ useEffect(() => {
           <p className="ud-results-count">
             <strong>{filteredProducts.length}</strong> products
           </p>
-          <div className="ud-sort-filter-row">
-            <button className="ud-sort-btn">
-              <Icons.SortAsc /> Sort
-            </button>
-            <button className="ud-filter-btn">
-              <Icons.Filter /> Filter
-            </button>
-          </div>
+
         </div>
 
         {/* Grid */}
@@ -401,16 +386,19 @@ useEffect(() => {
       {/* ══ BOTTOM NAV ═══════════════════════════════════════════════════════ */}
       <nav className="ud-bottom-nav">
         {[
-          { id: "home",       label: "Home",       Icon: Icons.Home  },
-          { id: "categories", label: "Categories", Icon: Icons.Grid  },
-          { id: "orders",     label: "Orders",     Icon: Icons.Package },
-          { id: "account",    label: "Account",    Icon: Icons.User  },
-          { id: "cart",       label: "Cart",       Icon: Icons.Cart, badge: cartCount },
-        ].map(({ id, label, Icon, badge }) => (
+          { id: "home",       label: "Home",       Icon: Icons.Home , path:"/dashboard" },
+          { id: "categories", label: "Categories", Icon: Icons.Grid , path:"/dashboard" },
+          { id: "orders",     label: "Orders",     Icon: Icons.Package ,path:"/dashboard/orders"},
+          { id: "account",    label: "Account",    Icon: Icons.User  ,path:"/dashboard/profile"},
+          { id: "cart",       label: "Cart",       Icon: Icons.Cart, badge: cartCount ,path:"/dashboard/cart"},
+        ].map(({ id, label, Icon, badge ,path}) => (
           <button
             key={id}
             className={`ud-nav-item${activeNav === id ? " active" : ""}`}
-            onClick={() => setActiveNav(id)}
+            onClick={() => {
+              setActiveNav(id);
+              navigate(path);
+            }}
           >
             <Icon />
             <span className="ud-nav-label">{label}</span>
