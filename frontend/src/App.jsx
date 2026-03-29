@@ -22,6 +22,7 @@ import UserDashboard from "./pages/User/UserDashboard"
 import CartPage from "./pages/User/CartPage"
 import ProfilePage from './pages/User/ProfilePage';
 import YourOrders from './pages/User/YourOrders';
+import Customize from './pages/User/Customize'
 
 
 const App = () => {
@@ -41,11 +42,11 @@ const App = () => {
                 <Route path = "coupons" element = {<Coupons />} />
           </Route>
 
-          <Route path = "/dashboard" element = {<ProtectedRoute><UserDashboard /></ProtectedRoute>}>
-					<Route path = "cart" element = {<CartPage />} />
-					<Route path = "profile" element = {<ProfilePage />} />
-					<Route path = "profile/orders" element = {<YourOrders />} />
-          </Route>
+          <Route path = "/dashboard" element = {<ProtectedRoute><UserDashboard /></ProtectedRoute>} />
+					<Route path = "/dashboard/cart" element = {<CartPage />} />
+					<Route path = "/dashboard/profile" element = {<ProfilePage />} />
+					<Route path = "/dashboard/orders" element = {<YourOrders />} />
+					<Route path = "/dashboard/customize" element = {<Customize />} />
 
 
       </Routes>
