@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../../supabase/supabaseClient.js'
+import { fetchApi, ApiError } from '../../lib/api'
 import '../../assets/css/Admin.css'
 
 const Coupons = () => {
@@ -43,95 +43,51 @@ const Coupons = () => {
   }
 
   const handleSubmit = async () => {
-    console.log('Inserting coupon:', {
-  code: form.code.trim(),
-  discount: Number(form.discount),
-  max_uses: Number(form.max_uses),
-  used_count: 0,
-  expiry_date: form.expiry_date,
-  is_active: isActive,
-})
     if (!validate()) return
-    console.log('Inserting coupon:', {
-  code: form.code.trim(),
-  discount: Number(form.discount),
-  max_uses: Number(form.max_uses),
-  used_count: 0,
-  expiry_date: form.expiry_date,
-  is_active: isActive,
-})
-
     setLoading(true)
-
     try {
-      const { error } = await supabase
-        .from('coupons')
-        .insert({
+      await fetchApi('/api/coupons', {
+        method: 'POST',
+        body: JSON.stringify({
           code: form.code.trim(),
           discount: Number(form.discount),
           max_uses: Number(form.max_uses),
-          used_count: 0,
           expiry_date: form.expiry_date,
           is_active: isActive,
-        })
-
-      if (error) {
-        // Supabase unique constraint error code
-        if (error.code === '23505') {
-          setErrors({ code: 'This coupon code already exists' })
-        } else {
-          throw error
-        }
-        return
-      }
-
+        }),
+      })
       handleReset()
       await fetchCoupons()
       showToastMsg('Coupon created successfully')
-
     } catch (err) {
-      console.error(err)
-      alert('Something went wrong. Please try again.')
+      if (err instanceof ApiError && err.field === 'code') {
+        setErrors({ code: err.message })
+      } else {
+        alert('Something went wrong. Please try again.')
+      }
     } finally {
       setLoading(false)
     }
   }
   const toggleCoupon = async (id, currentStatus) => {
     try {
-      const { error } = await supabase
-        .from('coupons')
-        .update({ is_active: !currentStatus })
-        .eq('id', id)
-
-      if (error) throw error
-
+      await fetchApi(`/api/coupons/${id}/toggle`, { method: 'PATCH' })
       setCoupons(prev =>
         prev.map(c => c.id === id ? { ...c, is_active: !currentStatus } : c)
       )
       showToastMsg(currentStatus ? 'Coupon disabled' : 'Coupon enabled')
-
     } catch (err) {
-      console.error(err)
       alert('Could not update coupon. Please try again.')
     }
   }
 
   const deleteCoupon = async (id) => {
     if (!window.confirm('Are you sure you want to delete this coupon?')) return
-
     try {
-      const { error } = await supabase
-        .from('coupons')
-        .delete()
-        .eq('id', id)
-
-      if (error) throw error
-
+      await fetchApi(`/api/coupons/${id}`, { method: 'DELETE' })
       setCoupons(prev => prev.filter(c => c.id !== id))
       showToastMsg('Coupon deleted')
-
     } catch (err) {
-      console.error(err)
       alert('Could not delete coupon. Please try again.')
     }
   }
@@ -147,13 +103,14 @@ const Coupons = () => {
 
   const fetchCoupons = async () => {
     setLoadingCoupons(true)
-    const { data, error } = await supabase
-      .from('coupons')
-      .select('*')
-      .order('created_at', { ascending: false })
-
-    if (!error) setCoupons(data)
-    setLoadingCoupons(false)
+    try {
+      const data = await fetchApi('/api/coupons')
+      setCoupons(data)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoadingCoupons(false)
+    }
   }
 
   return (

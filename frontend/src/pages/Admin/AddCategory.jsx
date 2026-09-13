@@ -1,6 +1,6 @@
 import { useState , useEffect } from "react";
 import "../../assets/css/Admin.css";
-import { supabase } from "../../supabase/supabaseClient";
+import { fetchApi } from "../../lib/api";
 
 // ── Max lengths ──────────────────────────────────────────────────────────────
 const NAME_MAX = 40;
@@ -95,17 +95,13 @@ export default function AddCategory() {
 
   // fetch categories function... backend...
   const fetchCategories = async () => {
-  const { data, error } = await supabase
-    .from("category")
-    .select("*")
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    console.log("Error fetching:", error.message);
-  } else {
-    setCategories(data);
+    try {
+      const data = await fetchApi('/api/categories')
+      setCategories(data)
+    } catch (err) {
+      console.error('Error fetching:', err.message)
+    }
   }
-};
 
 useEffect(() => {
   fetchCategories();
@@ -131,28 +127,20 @@ useEffect(() => {
 
   // ── Submit ─────────────────────────────────────────────────────────────────
 const handleSubmit = async () => {
-  if (!validate()) return;
-
-  const { data, error } = await supabase
-    .from("category")
-    .insert([
-      {
-        name: name.trim(),
-        description: desc.trim(),
-      },
-    ]);
-
-  if (error) {
-    alert("Error: " + error.message);
-    return;
+  if (!validate()) return
+  try {
+    await fetchApi('/api/categories', {
+      method: 'POST',
+      body: JSON.stringify({ name: name.trim(), description: desc.trim() }),
+    })
+    fetchCategories()
+    handleReset()
+    setShowToast(true)
+    setTimeout(() => setShowToast(false), 3200)
+  } catch (err) {
+    alert('Error: ' + err.message)
   }
-
-  fetchCategories();   // reload list from DB
-  handleReset();
-
-  setShowToast(true);
-  setTimeout(() => setShowToast(false), 3200);
-};
+}
 
   // ── Reset ──────────────────────────────────────────────────────────────────
   const handleReset = () => {
@@ -164,17 +152,13 @@ const handleSubmit = async () => {
 
   // ── Delete category ────────────────────────────────────────────────────────
  const handleDelete = async (id) => {
-  const { error } = await supabase
-    .from("category")
-    .delete()
-    .eq("category_id", id);
-
-  if (error) {
-    alert("Delete failed");
-  } else {
-    fetchCategories();
+  try {
+    await fetchApi(`/api/categories/${id}`, { method: 'DELETE' })
+    fetchCategories()
+  } catch (err) {
+    alert('Delete failed')
   }
-};
+}
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const slug        = name.trim() ? toSlug(name) : "category-slug";

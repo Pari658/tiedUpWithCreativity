@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "../../supabase/supabaseClient.js";
+import { fetchApi } from "../../lib/api";
 import '../../assets/css/Admin.css'
 
 const AddProduct = () => {
@@ -26,12 +26,14 @@ const AddProduct = () => {
 
   useEffect(() => {
     const fetchCategories = async () => {
-      const { data, error } = await supabase
-        .from('category')
-        .select('category_id, name')
-
-      if (!error) setCategories(data)
-      setLoadingCats(false)
+      try {
+        const data = await fetchApi('/api/categories')
+        setCategories(data)
+      } catch (err) {
+        console.error('Error fetching categories:', err.message)
+      } finally {
+        setLoadingCats(false)
+      }
     }
 
     fetchCategories()
@@ -93,72 +95,23 @@ const AddProduct = () => {
 
   const handleSubmit = async () => {
     if (!validate()) return
-
     setLoading(true)
-    console.log('Submitting:', {
-      product_name: form.name.trim(),
-      description: form.description.trim(),
-      category_id: form.category_id,
-      price: Number(form.price),
-      stock: Number(form.stock),
-      is_active: isActive,
-    })
     try {
-      // Step 1 — Insert product into database
-      const { data: product, error: productError } = await supabase
-        .from('product')
-        .insert({
-          product_name: form.name.trim(),
-          description: form.description.trim(),
-          category_id: form.category_id,
-          price: Number(form.price),
-          stock: Number(form.stock),
-          is_active: isActive,
-        })
-        .select()
-        .single()
+      const formData = new FormData()
+      formData.append('product_name', form.name.trim())
+      formData.append('description', form.description.trim())
+      formData.append('category_id', form.category_id)
+      formData.append('price', form.price)
+      formData.append('stock', form.stock)
+      formData.append('is_active', isActive)
+      formData.append('primaryIndex', primaryIndex)
+      images.forEach(file => formData.append('images', file))
 
-      if (productError) throw productError
+      await fetchApi('/api/products', { method: 'POST', body: formData })
 
-      // Step 2 — Upload each image to Supabase Storage
-      const imageInserts = []
-
-      for (let i = 0; i < images.length; i++) {
-        const file = images[i]
-        const fileExt = file.name.split('.').pop()
-        const fileName = `${product.product_id}_${i}_${Date.now()}.${fileExt}`
-        const filePath = `products/${fileName}`
-
-        const { error: uploadError } = await supabase.storage
-          .from('product-images')
-          .upload(filePath, file)
-
-        if (uploadError) throw uploadError
-
-        // Step 3 — Get the public URL of the uploaded image
-        const { data: urlData } = supabase.storage
-          .from('product-images')
-          .getPublicUrl(filePath)
-
-        imageInserts.push({
-          product_id: product.product_id,
-          image_url: urlData.publicUrl,
-          is_primary: i === primaryIndex,
-        })
-      }
-
-      // Step 4 — Insert all image records into product_images table
-      const { error: imagesError } = await supabase
-        .from('product_images')
-        .insert(imageInserts)
-
-      if (imagesError) throw imagesError
-
-      // Step 5 — Success
       handleReset()
       setShowToast(true)
       setTimeout(() => setShowToast(false), 3200)
-
     } catch (err) {
       console.error(err)
       alert('Something went wrong. Please try again.')

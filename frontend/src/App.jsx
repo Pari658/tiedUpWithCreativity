@@ -2,6 +2,7 @@ import React from 'react'
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom"
 import { AuthProvider } from './context/AuthContext'
 import AppLayout from './components/layout/AppLayout'
+import DashboardLayout from './components/layout/DashboardLayout'
 import ProtectedRoute, { AdminRoute } from './components/auth/protectedRoute'
 
 // Public pages
@@ -21,7 +22,7 @@ import Reviews from './pages/Admin/reviews'
 import UserDashboard from "./pages/User/UserDashboard"
 import CartPage from "./pages/User/CartPage"
 import ProfilePage from './pages/User/ProfilePage'
-import YourOrders from './pages/User/YourOrders';
+import YourOrders from './pages/User/YourOrders'
 import Customize from './pages/User/Customize'
 
 
@@ -60,19 +61,20 @@ const App = () => {
             }/>
           </Route>
 
-          {/* User — protected */}
+          {/* User Dashboard — protected layout route with nested children */}
           <Route path="/dashboard" element={
-            <ProtectedRoute><UserDashboard /></ProtectedRoute>
-          }/>
-          <Route path="/cart" element={
-            <ProtectedRoute><CartPage /></ProtectedRoute>
-          }/>
-          <Route path="/profile" element={
-            <ProtectedRoute><ProfilePage /></ProtectedRoute>
-          }/>
-          <Route path="/orders" element={
-            <ProtectedRoute><YourOrders /></ProtectedRoute>
-          }/>
+            <ProtectedRoute><DashboardLayout /></ProtectedRoute>
+          }>
+            <Route index element={<UserDashboard />} />
+            <Route path="profile" element={<ProfilePage />} />
+            <Route path="cart" element={<CartPage />} />
+            <Route path="orders" element={<YourOrders />} />
+          </Route>
+
+          {/* Direct shortcuts for legacy top-level paths */}
+          <Route path="/cart" element={<ProtectedRoute><DashboardLayout><CartPage /></DashboardLayout></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><DashboardLayout><ProfilePage /></DashboardLayout></ProtectedRoute>} />
+          <Route path="/orders" element={<ProtectedRoute><DashboardLayout><YourOrders /></DashboardLayout></ProtectedRoute>} />
 
         </Routes>
       </Router>

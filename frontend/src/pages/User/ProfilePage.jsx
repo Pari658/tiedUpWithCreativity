@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../../supabase/supabaseClient";
+import { fetchApi } from "../../lib/api";
+import { useAuth } from "../../context/AuthContext";
 import "../../assets/css/profile.css";
 
 // ── Icons ────────────────────────────────────────────────────────────────────
@@ -99,6 +100,7 @@ function Field({ label, icon, id, type = "text", placeholder, value, onChange, e
 // ── Main Page Component ───────────────────────────────────────────────────────
 export default function ProfilePage() {
   const navigate = useNavigate();
+  const { refetchUser } = useAuth();
 
   // ── States ──
   const [personal, setPersonal] = useState({ name: "", email: "", phone: "" });
@@ -114,44 +116,33 @@ export default function ProfilePage() {
 
   // ── Fetch Data ──
   const fetchProfileData = async () => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
+    try {
+      const pData = await fetchApi('/api/users/me/profile')
+      if (pData) {
+        setPersonal({ name: pData.name, email: pData.email, phone: pData.phone })
+      }
 
-  try {
-    // Fetch Personal Info using your 'name' field
-    const { data: pData } = await supabase
-      .from("users")
-      .select("name, email, phone")
-      .eq("user_id", user.id)
-      .single();
-
-    if (pData) {
-      setPersonal({ name: pData.name, email: pData.email, phone: pData.phone });
+      try {
+        const aData = await fetchApi('/api/users/me/address')
+        if (aData) {
+          setAddress({
+            addressLine: aData.address_line1,
+            addressLine2: aData.address_line2,
+            city: aData.city,
+            state: aData.state,
+            pincode: aData.pincode,
+            country: aData.country,
+          })
+        }
+      } catch {
+        // No address yet — that's fine
+      }
+    } catch (err) {
+      console.error('Fetch Error:', err)
+    } finally {
+      setLoading(false)
     }
-
-    // Fetch Address Info using your specific line 1 and line 2
-    const { data: aData } = await supabase
-      .from("address")
-      .select("address_line1, address_line2, city, state, pincode, country")
-      .eq("user_id", user.id)
-      .single();
-
-    if (aData) {
-      setAddress({
-        addressLine: aData.address_line1,
-        addressLine2: aData.address_line2, // Added line 2
-        city: aData.city,
-        state: aData.state,
-        pincode: aData.pincode,
-        country: aData.country
-      });
-    }
-  } catch (err) {
-    console.error("Fetch Error:", err);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   useEffect(() => {
     fetchProfileData();
@@ -168,8 +159,13 @@ export default function ProfilePage() {
     : "??";
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate("/login");
+    try {
+      await fetchApi('/api/auth/logout', { method: 'POST' })
+    } catch {
+      // Ignore logout errors
+    }
+    await refetchUser()
+    navigate('/login')
   };
 
   // ── Validation & Save Logic ──
@@ -182,22 +178,20 @@ export default function ProfilePage() {
     return !Object.keys(e).length;
   };
 
-const savePersonal = async () => {
-  const { data: { user } } = await supabase.auth.getUser();
-  const { error } = await supabase
-    .from("users")
-    .update({ 
-      name: draftPersonal.name, // Matches your 'name' field
-      phone: draftPersonal.phone 
-    })
-    .eq("user_id", user.id);
-
-  if (!error) {
-    setPersonal({ ...draftPersonal });
-    setEditPersonal(false);
-    showToast("Saved!");
-  }
-};
+  const savePersonal = async () => {
+    if (!validatePersonal()) return
+    try {
+      await fetchApi('/api/users/me/profile', {
+        method: 'PATCH',
+        body: JSON.stringify({ name: draftPersonal.name, phone: draftPersonal.phone }),
+      })
+      setPersonal({ ...draftPersonal })
+      setEditPersonal(false)
+      showToast('Saved!')
+    } catch (err) {
+      alert('Error saving profile: ' + err.message)
+    }
+  };
 
   const validateAddress = () => {
     const e = {};
@@ -208,26 +202,27 @@ const savePersonal = async () => {
     setErrorsA(e);
     return !Object.keys(e).length;
   };
-const saveAddress = async () => {
-  const { data: { user } } = await supabase.auth.getUser();
-  const { error } = await supabase
-    .from("address")
-    .upsert({
-      user_id: user.id,
-      address_line1: draftAddress.addressLine,
-      address_line2: draftAddress.addressLine2,
-      city: draftAddress.city,
-      state: draftAddress.state,
-      pincode: draftAddress.pincode,
-      country: "India" // Or draftAddress.country
-    });
-
-  if (!error) {
-    setAddress({ ...draftAddress });
-    setEditAddress(false);
-    showToast("Address saved!");
-  }
-};
+  const saveAddress = async () => {
+    if (!validateAddress()) return
+    try {
+      await fetchApi('/api/users/me/address', {
+        method: 'PUT',
+        body: JSON.stringify({
+          address_line1: draftAddress.addressLine,
+          address_line2: draftAddress.addressLine2,
+          city: draftAddress.city,
+          state: draftAddress.state,
+          pincode: draftAddress.pincode,
+          country: 'India',
+        }),
+      })
+      setAddress({ ...draftAddress })
+      setEditAddress(false)
+      showToast('Address saved!')
+    } catch (err) {
+      alert('Error saving address: ' + err.message)
+    }
+  };
   if (loading) return <div className="pp-loader">Loading profile...</div>;
 
   return (

@@ -1,7 +1,8 @@
 import { useState } from "react";
 import "../assets/css/styles.css";
-import { supabase } from "../supabase/supabaseClient";
+import { fetchApi, ApiError } from "../lib/api";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 const Icon = {
@@ -78,6 +79,7 @@ const Field = ({ label, icon, id, type = "text", placeholder, value, onChange, e
 // ── Main Component ───────────────────────────────────────────────────────────
 export default function LoginPage() {
   const navigate = useNavigate()
+  const { refetchUser } = useAuth()
   const [view, setView] = useState("login"); // login | signup | forgot | forgotSent
 
   // Login state
@@ -125,74 +127,50 @@ export default function LoginPage() {
 
 // backend connection for login
 const handleLoginSubmit = async () => {
-  if (validateLogin()) {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: loginData.email,
-      password: loginData.password
-    });
-
-    if (error) {
-      alert(error.message);
+  if (!validateLogin()) return
+  try {
+    await fetchApi('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email: loginData.email, password: loginData.password }),
+    })
+    await refetchUser()
+    navigate('/dashboard')
+  } catch (err) {
+    if (err instanceof ApiError) {
+      alert(err.message)
     } else {
-      // Fetch user profile from public users table
-      const { data: profile, error: profileError } = await supabase
-        .from("users")
-        .select("*")
-        .eq("user_id", data.user.id)
-        .maybeSingle();
-
-      if (profileError) {
-        alert(profileError.message);
-        return;
-      }
-
-      // Check if blocked
-      if (profile.is_blocked) {
-        alert("You are blocked by admin");
-        await supabase.auth.signOut();
-        return;
-      }
-      navigate("/dashboard");
+      alert('Something went wrong. Please try again.')
     }
   }
-};
+}
 
 // backend connection for signup
- const handleSignupSubmit = async () => {
-  if (validateSignup()) {
-    const { data, error } = await supabase.auth.signUp({
-      email: signupData.email,
-      password: signupData.password
-    });
-
-    if (error) {
-      alert(error.message);
-    } else {
-      const user = data.user;
-
-      // Insert into public users table
-      const { error: insertError } = await supabase
-        .from("users")
-        .insert([
-          {
-            user_id: user.id,
-            name: signupData.name,
-            email: signupData.email,
-            phone: signupData.phone,
-            role: "customer",
-            avatar_url: "",
-            is_blocked: false,
-          }
-        ]);
-
-      if (insertError) {
-        alert(insertError.message);
+const handleSignupSubmit = async () => {
+  if (!validateSignup()) return
+  try {
+    await fetchApi('/api/auth/signup', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: signupData.name,
+        email: signupData.email,
+        password: signupData.password,
+        phone: signupData.phone,
+      }),
+    })
+    await refetchUser()
+    navigate('/dashboard')
+  } catch (err) {
+    if (err instanceof ApiError) {
+      if (err.field === 'email') {
+        setSignupErrors(prev => ({ ...prev, email: err.message }))
       } else {
-        navigate("/login");
+        alert(err.message)
       }
+    } else {
+      alert('Something went wrong. Please try again.')
     }
   }
-};
+}
 // backend connection to forgot password...
   const handleForgot = () => {
     if (!forgotEmail) { setForgotError("Please enter your email"); return; }
