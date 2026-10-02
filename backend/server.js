@@ -9,6 +9,7 @@ import productRoutes from './routes/product.routes.js'
 import couponRoutes from './routes/coupon.routes.js'
 import userRoutes from './routes/user.routes.js'
 import cartRoutes from './routes/cart.routes.js'
+import reviewRoutes from './routes/review.routes.js'
 
 const app = express()
 
@@ -22,6 +23,7 @@ app.use('/api/products', productRoutes)
 app.use('/api/coupons', couponRoutes)
 app.use('/api/users', userRoutes)
 app.use('/api/cart', cartRoutes)
+app.use('/api/reviews', reviewRoutes)
 
 // Global error handler — MUST be after all routes
 app.use(errorHandler)

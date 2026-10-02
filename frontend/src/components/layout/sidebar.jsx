@@ -77,6 +77,14 @@ const BraceletIcon = () => (
   </svg>
 );
 
+// ── Storefront SVG Icon ─────────────────────────────────────────────────────
+const StorefrontIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+    <polyline points="9 22 9 12 15 12 15 22" />
+  </svg>
+);
+
 // ── Sidebar Component ────────────────────────────────────────────────────────
 export default function Sidebar({ activePage, onNavigate, isOpen, onClose, onLogout }) {
   return (
@@ -90,7 +98,12 @@ export default function Sidebar({ activePage, onNavigate, isOpen, onClose, onLog
       <aside className={`tuc-sidebar${isOpen ? " open" : ""}`}>
 
         {/* ── Brand ── */}
-        <div className="tuc-sidebar-brand">
+        <div
+          className="tuc-sidebar-brand"
+          onClick={() => { onNavigate("/dashboard"); onClose(); }}
+          style={{ cursor: "pointer" }}
+          title="Return to Storefront"
+        >
           <div className="tuc-sidebar-blob">
             <BraceletIcon />
           </div>

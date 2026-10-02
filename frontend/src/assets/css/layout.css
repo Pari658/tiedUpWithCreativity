@@ -298,6 +298,103 @@
   color: var(--gold);
 }
 
+/* ── Back to Storefront Button ───────────────────────────────────────────── */
+.tuc-sidebar-back-store-wrap {
+  padding: 8px 14px 4px;
+}
+
+.tuc-sidebar-back-store-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid rgba(244, 168, 154, 0.45);
+  background: linear-gradient(135deg, rgba(244, 168, 154, 0.12) 0%, rgba(200, 240, 236, 0.22) 100%);
+  cursor: pointer;
+  text-align: left;
+  transition: all var(--trans);
+  color: var(--ink-mid);
+  font-family: 'Jost', sans-serif;
+}
+
+.tuc-sidebar-back-store-btn:hover {
+  background: linear-gradient(135deg, rgba(244, 168, 154, 0.25) 0%, rgba(200, 240, 236, 0.45) 100%);
+  border-color: var(--coral-deep);
+  box-shadow: 0 4px 12px rgba(244, 168, 154, 0.25);
+  transform: translateY(-1px);
+}
+
+.tuc-sidebar-back-store-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--white);
+  color: var(--coral-deep);
+  border: 1px solid rgba(244, 168, 154, 0.35);
+  transition: all var(--trans);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+.tuc-sidebar-back-store-btn:hover .tuc-sidebar-back-store-icon {
+  background: linear-gradient(135deg, var(--coral) 0%, var(--coral-deep) 100%);
+  color: var(--white);
+  border-color: transparent;
+  box-shadow: 0 3px 8px rgba(240, 128, 112, 0.35);
+}
+
+.tuc-sidebar-back-store-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.tuc-sidebar-back-store-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.tuc-sidebar-back-store-label {
+  font-family: 'Jost', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.2;
+  transition: color var(--trans);
+}
+
+.tuc-sidebar-back-store-btn:hover .tuc-sidebar-back-store-label {
+  color: var(--coral-deep);
+}
+
+.tuc-sidebar-back-store-desc {
+  font-family: 'Jost', sans-serif;
+  font-size: 10px;
+  color: var(--ink-light);
+  font-weight: 400;
+  line-height: 1.2;
+  margin-top: 1px;
+}
+
+.tuc-sidebar-back-store-arrow {
+  width: 14px;
+  height: 14px;
+  color: var(--ink-light);
+  flex-shrink: 0;
+  transition: transform var(--trans), color var(--trans);
+}
+
+.tuc-sidebar-back-store-btn:hover .tuc-sidebar-back-store-arrow {
+  color: var(--coral-deep);
+  transform: translateX(2px);
+}
+
 /* ── Nav section label ───────────────────────────────────────────────────── */
 .tuc-nav-section-label {
   font-family: 'Jost', sans-serif;
@@ -409,6 +506,57 @@
   padding: 1px 7px;
   min-width: 20px;
   text-align: center;
+}
+
+.tuc-nav-icon-box {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 16px;
+  background: rgba(200, 240, 236, 0.4);
+  transition: background var(--trans);
+}
+
+.tuc-nav-link.active .tuc-nav-icon-box {
+  background: linear-gradient(135deg, var(--coral) 0%, var(--coral-deep) 100%);
+  box-shadow: 0 3px 10px rgba(244, 168, 154, 0.4);
+}
+
+.tuc-nav-text-block {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  text-align: left;
+}
+
+.tuc-nav-label {
+  font-family: 'Jost', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-mid);
+  transition: color var(--trans);
+  line-height: 1.2;
+}
+
+.tuc-nav-link.active .tuc-nav-label {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.tuc-nav-link:hover .tuc-nav-label {
+  color: var(--ink);
+}
+
+.tuc-nav-desc {
+  font-family: 'Jost', sans-serif;
+  font-size: 10px;
+  color: var(--ink-light);
+  line-height: 1.2;
+  margin-top: 2px;
 }
 
 /* ── Sidebar footer ──────────────────────────────────────────────────────── */

@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import "../../assets/css/layout.css";
 // ── Page title map ───────────────────────────────────────────────────────────
 const PAGE_TITLES = {
@@ -12,6 +13,7 @@ const PAGE_TITLES = {
 
 // ── Header Component ─────────────────────────────────────────────────────────
 export default function Header({ activePage, onMenuToggle }) {
+  const navigate = useNavigate();
   const pageTitle = PAGE_TITLES[activePage] || "Dashboard";
 
   return (
@@ -65,7 +67,7 @@ export default function Header({ activePage, onMenuToggle }) {
         <div className="tuc-header-divider" />
 
         {/* Admin avatar */}
-        <div className="tuc-header-avatar">
+        <div className="tuc-header-avatar" onClick={() => navigate("/dashboard/profile")} title="View Profile">
           <div className="tuc-avatar-circle">A</div>
           <div className="tuc-avatar-info">
             <span className="tuc-avatar-name">Admin</span>
