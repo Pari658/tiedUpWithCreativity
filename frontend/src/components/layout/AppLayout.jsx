@@ -4,7 +4,7 @@ import Sidebar from "./Sidebar";
 import Header from "./Header";
 import "../../assets/css/layout.css";
 import "../../assets/css/User.css";
-import { fetchApi } from "../../lib/api";
+import { fetchApi, clearAccessToken } from "../../lib/api";
 import { useAuth } from "../../context/AuthContext";
 
 // ── Bottom‑nav Icons (same as DashboardLayout) ─────────────────────────────
@@ -63,6 +63,7 @@ export default function AppLayout() {
     } catch {
       // Ignore
     }
+    clearAccessToken()
     await refetchUser()
     navigate('/login')
   }

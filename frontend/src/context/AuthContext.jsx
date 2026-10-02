@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react"
-import { fetchApi } from "../lib/api"
+import { fetchApi, clearAccessToken } from "../lib/api"
 
 export const AuthContext = createContext()
 
@@ -16,11 +16,14 @@ export const AuthProvider = ({ children }) => {
     } catch {
       setUser(null)
       setRole(null)
+      clearAccessToken()
     } finally {
       setLoading(false)
     }
   }, [])
 
+  // On mount, try to restore the session.
+  // fetchApi will auto-refresh from the httpOnly cookie on 401.
   useEffect(() => {
     refetchUser()
   }, [])
