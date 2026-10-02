@@ -23,6 +23,7 @@ app.use(cookieParser())
 app.use('/api/auth', authRoutes)
 app.use('/api/categories', categoryRoutes)
 app.use('/api/products', productRoutes)
+app.use('/api/v1/products', productRoutes)
 app.use('/api/coupons', couponRoutes)
 app.use('/api/users', userRoutes)
 app.use('/api/cart', cartRoutes)
@@ -30,6 +31,9 @@ app.use('/api/reviews', reviewRoutes)
 app.use('/api/admin/dashboard', adminDashboardRoutes)
 app.use('/api/admin/customers', customerManagementRoutes)
 app.use('/api/orders', orderRoutes)
+app.use('/api/v1/orders', orderRoutes)
+app.use('/api/checkout', orderRoutes)
+app.use('/api/v1/checkout', orderRoutes)
 
 
 // Global error handler — MUST be after all routes
