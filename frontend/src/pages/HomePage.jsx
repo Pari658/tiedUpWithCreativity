@@ -786,11 +786,11 @@ function ShopperHome({ navigate }) {
     </div>
   )
 }
-
-// ── HomePage: routes guests to the landing page, logged-in users to the shop ─
-export default function HomePage() {
-  const navigate = useNavigate()
+function HomePage() {
   const { user } = useAuth()
+  const navigate = useNavigate()
 
   return user ? <ShopperHome navigate={navigate} /> : <GuestLanding navigate={navigate} />
 }
+
+export default HomePage
