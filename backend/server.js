@@ -26,6 +26,8 @@ app.use('/api/coupons', couponRoutes)
 app.use('/api/users', userRoutes)
 app.use('/api/cart', cartRoutes)
 app.use('/api/reviews', reviewRoutes)
+app.use('/api/admin/dashboard', adminDashboardRoutes)
+app.use('/api/orders', orderRoutes)
 
 // Global error handler — MUST be after all routes
 app.use(errorHandler)
