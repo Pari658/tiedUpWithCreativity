@@ -4,8 +4,12 @@ import { AppError } from '../utils/AppError.js'
 import { asyncHandler } from '../utils/asyncHandler.js'
 
 export const requireAuth = asyncHandler((req, res, next) => {
-  const token = req.cookies?.session
-  if (!token) throw new AppError(401, 'Unauthorized')
+  const authHeader = req.headers.authorization
+  if (!authHeader?.startsWith('Bearer ')) {
+    throw new AppError(401, 'Unauthorized')
+  }
+
+  const token = authHeader.split(' ')[1]
 
   try {
     const payload = jwt.verify(token, ENV.JWT_SECRET)

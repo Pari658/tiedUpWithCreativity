@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { fetchApi } from "../../lib/api";
+import { fetchApi, clearAccessToken } from "../../lib/api";
 import { useAuth } from "../../context/AuthContext";
 import "../../assets/css/profile.css";
 
@@ -164,6 +164,7 @@ export default function ProfilePage() {
     } catch {
       // Ignore logout errors
     }
+    clearAccessToken()
     await refetchUser()
     navigate('/login')
   };

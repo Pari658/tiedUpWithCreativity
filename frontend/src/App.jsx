@@ -8,6 +8,7 @@ import ProtectedRoute, { AdminRoute } from './components/auth/protectedRoute'
 // Public pages
 import HomePage from "./pages/HomePage"
 import LoginPage from "./pages/LoginPage"
+import VerifyEmailPage from "./pages/VerifyEmailPage"
 
 // Admin pages
 import AdminDashboard from './pages/Admin/AdminDashboard'
@@ -35,6 +36,7 @@ const App = () => {
           {/* Public */}
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
 
           {/* Admin — with layout, protected */}
           <Route path="/admin" element={<AppLayout />}>

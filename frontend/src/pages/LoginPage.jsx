@@ -1,6 +1,6 @@
 import { useState } from "react";
 import "../assets/css/styles.css";
-import { fetchApi, ApiError } from "../lib/api";
+import { fetchApi, ApiError, setAccessToken } from "../lib/api";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
@@ -129,10 +129,15 @@ export default function LoginPage() {
 const handleLoginSubmit = async () => {
   if (!validateLogin()) return
   try {
-    await fetchApi('/api/auth/login', {
+    const data = await fetchApi('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email: loginData.email, password: loginData.password }),
     })
+    if (data.needsVerification) {
+      navigate(`/verify-email?email=${encodeURIComponent(data.email)}`)
+      return
+    }
+    setAccessToken(data.accessToken)
     await refetchUser()
     navigate('/dashboard')
   } catch (err) {
@@ -148,7 +153,7 @@ const handleLoginSubmit = async () => {
 const handleSignupSubmit = async () => {
   if (!validateSignup()) return
   try {
-    await fetchApi('/api/auth/signup', {
+    const data = await fetchApi('/api/auth/signup', {
       method: 'POST',
       body: JSON.stringify({
         name: signupData.name,
@@ -157,6 +162,11 @@ const handleSignupSubmit = async () => {
         phone: signupData.phone,
       }),
     })
+    if (data.needsVerification) {
+      navigate(`/verify-email?email=${encodeURIComponent(data.email)}`)
+      return
+    }
+    setAccessToken(data.accessToken)
     await refetchUser()
     navigate('/dashboard')
   } catch (err) {
