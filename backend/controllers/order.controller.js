@@ -121,7 +121,8 @@ export const getOrderById = asyncHandler(async (req, res) => {
       product:product_id (
         product_id,
         product_name,
-        price
+        price,
+        image_url:product_images!fk_product(image_url)
       )
     `
     )
