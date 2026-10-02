@@ -786,5 +786,11 @@ function ShopperHome({ navigate }) {
     </div>
   )
 }
+function HomePage() {
+  const { user } = useAuth()
+  const navigate = useNavigate()
+
+  return user ? <ShopperHome navigate={navigate} /> : <GuestLanding navigate={navigate} />
+}
 
 export default HomePage
