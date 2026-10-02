@@ -61,7 +61,7 @@ export const signup = asyncHandler(async (req, res) => {
   const token = signToken(user)
   res.cookie('session', token, COOKIE_OPTIONS)
 
-  res.status(201).json({ user: sanitizeUser(user) })
+  res.status(201).json({ user: sanitizeUser(user), token })
 })
 
 export const login = asyncHandler(async (req, res) => {
@@ -84,7 +84,7 @@ export const login = asyncHandler(async (req, res) => {
   const token = signToken(user)
   res.cookie('session', token, COOKIE_OPTIONS)
 
-  res.status(200).json({ user: sanitizeUser(user) })
+  res.status(200).json({ user: sanitizeUser(user), token })
 })
 
 export const logout = asyncHandler(async (req, res) => {

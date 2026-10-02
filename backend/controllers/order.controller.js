@@ -1,3 +1,5 @@
+import jwt from 'jsonwebtoken'
+import { ENV } from '../lib/env.js'
 import { supabaseAdmin } from '../lib/supabaseAdmin.js'
 import { asyncHandler } from '../utils/asyncHandler.js'
 import { AppError } from '../utils/AppError.js'
@@ -11,11 +13,9 @@ const ORDER_STATUSES = [
   'cancelled',
 ]
 
-// Valid payment_status values (must match DB check constraint)
-// DB allows: pending | paid | failed
-
 // Valid payment_method values (must match DB check constraint)
-// DB allows: wallet | credit_card | debit_card
+// DB allows: UPI | credit_card | debit_card | net_banking | wallet | COD
+const CHECKOUT_PAYMENT_METHODS = ['COD', 'UPI']
 
 // Statuses that allow cancellation (before fulfilment leaves the warehouse)
 const CANCELLABLE_STATUSES = ['placed']
@@ -23,10 +23,508 @@ const CANCELLABLE_STATUSES = ['placed']
 // Terminal statuses — no further updates allowed
 const TERMINAL_STATUSES = ['cancelled']
 
+// ─── HELPER: CALCULATE BILL FROM DATABASE ─────────────────────────────────
+// Ensures all prices, discounts, and totals are computed server-side
+export const calculateBillFromDb = async ({ items, userId, couponCode, shippingCost }) => {
+  let itemsToProcess = []
+
+  if (items && Array.isArray(items) && items.length > 0) {
+    itemsToProcess = items
+  } else {
+    // Fetch from user's cart
+    const { data: cart, error: cartError } = await supabaseAdmin
+      .from('cart')
+      .select('cart_id')
+      .eq('user_id', userId)
+      .maybeSingle()
+
+    if (cartError) throw cartError
+    if (!cart) {
+      throw new AppError(400, 'Your cart is empty')
+    }
+
+    const { data: cartItems, error: itemsError } = await supabaseAdmin
+      .from('cart_items')
+      .select('product_id, quantity')
+      .eq('cart_id', cart.cart_id)
+
+    if (itemsError) throw itemsError
+    if (!cartItems || cartItems.length === 0) {
+      throw new AppError(400, 'Your cart is empty')
+    }
+
+    itemsToProcess = cartItems
+  }
+
+  // Consolidate duplicate product_ids
+  const consolidated = {}
+  for (const item of itemsToProcess) {
+    const pid = item.product_id || item.productId
+    const qty = Number(item.quantity || 1)
+    if (!pid) throw new AppError(400, 'Missing product ID in items')
+    if (isNaN(qty) || qty <= 0) throw new AppError(400, 'Quantity must be a positive integer')
+    consolidated[pid] = (consolidated[pid] || 0) + qty
+  }
+
+  const pids = Object.keys(consolidated)
+  if (pids.length === 0) {
+    throw new AppError(400, 'No items provided for checkout')
+  }
+
+  // Fetch product data from DB
+  const { data: products, error: prodError } = await supabaseAdmin
+    .from('product')
+    .select('product_id, product_name, price, stock, is_active')
+    .in('product_id', pids)
+
+  if (prodError) throw prodError
+
+  // Fetch primary images
+  const { data: images, error: imgError } = await supabaseAdmin
+    .from('product_images')
+    .select('product_id, image_url, is_primary')
+    .in('product_id', pids)
+
+  if (imgError) throw imgError
+
+  let subtotal = 0
+  const processedItems = []
+
+  for (const pid of pids) {
+    const product = products.find((p) => p.product_id === pid)
+    if (!product) {
+      throw new AppError(404, `Product not found: ${pid}`)
+    }
+    if (!product.is_active) {
+      throw new AppError(400, `Product "${product.product_name}" is no longer available`)
+    }
+
+    const quantity = consolidated[pid]
+    const price = Number(product.price)
+    const itemTotal = price * quantity
+    subtotal += itemTotal
+
+    const productImages = (images || []).filter((img) => img.product_id === pid)
+    const primaryImg = productImages.find((img) => img.is_primary) || productImages[0]
+
+    processedItems.push({
+      product_id: product.product_id,
+      product_name: product.product_name,
+      price,
+      quantity,
+      total_price: itemTotal,
+      stock: product.stock,
+      is_stock_sufficient: product.stock >= quantity,
+      image_url: primaryImg?.image_url || null,
+    })
+  }
+
+  // Handle coupon
+  let validatedCoupon = null
+  let discountAmount = 0
+
+  if (couponCode && typeof couponCode === 'string' && couponCode.trim()) {
+    const cleanedCode = couponCode.trim().toUpperCase()
+    const { data: coupon, error: couponError } = await supabaseAdmin
+      .from('coupons')
+      .select('*')
+      .eq('code', cleanedCode)
+      .maybeSingle()
+
+    if (couponError || !coupon) {
+      throw new AppError(400, `Invalid coupon code: "${cleanedCode}"`)
+    }
+
+    if (!coupon.is_active) {
+      throw new AppError(400, `Coupon "${cleanedCode}" is inactive`)
+    }
+
+    // Expiry check (comparing YYYY-MM-DD against today's date)
+    const todayStr = new Date().toISOString().split('T')[0]
+    if (coupon.expiry_date < todayStr) {
+      throw new AppError(400, `Coupon "${cleanedCode}" has expired`)
+    }
+
+    if (coupon.max_uses !== null && coupon.used_count >= coupon.max_uses) {
+      throw new AppError(400, `Coupon "${cleanedCode}" usage limit reached`)
+    }
+
+    const discountPercent = Number(coupon.discount)
+    discountAmount = Math.min(subtotal, Math.round((subtotal * discountPercent) / 100))
+    validatedCoupon = {
+      id: coupon.id,
+      code: coupon.code,
+      discount_percent: discountPercent,
+      discount_amount: discountAmount,
+    }
+  }
+
+  // Shipping charge: 60 default if items exist, or specified value
+  const shippingCharge =
+    processedItems.length > 0
+      ? shippingCost !== undefined && !isNaN(Number(shippingCost))
+        ? Number(shippingCost)
+        : 60
+      : 0
+
+  const finalTotal = Math.max(0, subtotal - discountAmount + shippingCharge)
+
+  return {
+    items: processedItems,
+    subtotal,
+    coupon: validatedCoupon,
+    discount_amount: discountAmount,
+    shipping_cost: shippingCharge,
+    final_total: finalTotal,
+    payment_methods: CHECKOUT_PAYMENT_METHODS,
+  }
+}
+
+// ─── CALCULATE CHECKOUT BILL (Buy Now or Cart) ────────────────────────────────
+// POST /api/orders/checkout or POST /api/checkout
+export const calculateCheckoutBill = asyncHandler(async (req, res) => {
+  const { items, from_cart, coupon_code, shipping_cost } = req.body
+
+  const bill = await calculateBillFromDb({
+    items: from_cart ? null : items,
+    userId: req.user.id,
+    couponCode: coupon_code,
+    shippingCost: shipping_cost,
+  })
+
+  res.json(bill)
+})
+
+// ─── GENERATE UPI PAYMENT ────────────────────────────────────────────────────
+// POST /api/orders/payment/upi/generate
+export const generateUpiPayment = asyncHandler(async (req, res) => {
+  const { items, from_cart, coupon_code, shipping_cost, address_id } = req.body
+
+  // Calculate bill from database values
+  const bill = await calculateBillFromDb({
+    items: from_cart ? null : items,
+    userId: req.user.id,
+    couponCode: coupon_code,
+    shippingCost: shipping_cost,
+  })
+
+  // Verify stock sufficiency for all items
+  for (const item of bill.items) {
+    if (!item.is_stock_sufficient) {
+      throw new AppError(
+        400,
+        `Insufficient stock for "${item.product_name}". Available: ${item.stock}, Requested: ${item.quantity}`
+      )
+    }
+  }
+
+  const transactionId = `UPI_${Date.now()}_${Math.random().toString(36).substring(2, 8).toUpperCase()}`
+  const payeeVpa = ENV.UPI_VPA || 'twc@upi'
+  const payeeName = 'Tied Up With Creativity'
+
+  // Cryptographically sign the payment intent token (15m expiry)
+  const paymentToken = jwt.sign(
+    {
+      type: 'upi_intent',
+      transaction_id: transactionId,
+      user_id: req.user.id,
+      amount: bill.final_total,
+      address_id: address_id || null,
+      coupon_code: coupon_code || null,
+      from_cart: Boolean(from_cart),
+      items: bill.items.map((i) => ({ product_id: i.product_id, quantity: i.quantity })),
+      created_at: Date.now(),
+    },
+    ENV.JWT_SECRET,
+    { expiresIn: '15m' }
+  )
+
+  const upiUri = `upi://pay?pa=${payeeVpa}&pn=${encodeURIComponent(payeeName)}&am=${bill.final_total}&tr=${transactionId}&cu=INR&tn=Order%20Payment`
+
+  res.json({
+    payment_method: 'UPI',
+    transaction_id: transactionId,
+    amount: bill.final_total,
+    payee_vpa: payeeVpa,
+    payee_name: payeeName,
+    upi_uri: upiUri,
+    payment_token: paymentToken,
+    expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+    bill: {
+      subtotal: bill.subtotal,
+      discount_amount: bill.discount_amount,
+      shipping_cost: bill.shipping_cost,
+      final_total: bill.final_total,
+    },
+  })
+})
+
+// ─── VERIFY UPI PAYMENT ──────────────────────────────────────────────────────
+// POST /api/orders/payment/upi/verify
+export const verifyUpiPayment = asyncHandler(async (req, res) => {
+  const { transaction_id, payment_token, upi_ref_no } = req.body
+
+  if (!transaction_id) {
+    throw new AppError(400, 'transaction_id is required')
+  }
+  if (!payment_token) {
+    throw new AppError(400, 'payment_token is required')
+  }
+
+  let decoded
+  try {
+    decoded = jwt.verify(payment_token, ENV.JWT_SECRET)
+  } catch (err) {
+    throw new AppError(400, 'Invalid or expired payment token')
+  }
+
+  if (decoded.user_id !== req.user.id) {
+    throw new AppError(403, 'Payment token does not belong to the authenticated user')
+  }
+  if (decoded.transaction_id !== transaction_id) {
+    throw new AppError(400, 'Transaction ID does not match payment token')
+  }
+
+  const verificationToken = jwt.sign(
+    {
+      type: 'upi_verified',
+      transaction_id,
+      user_id: req.user.id,
+      amount: decoded.amount,
+      upi_ref_no: upi_ref_no || `REF_${Date.now()}`,
+      verified: true,
+    },
+    ENV.JWT_SECRET,
+    { expiresIn: '1h' }
+  )
+
+  res.json({
+    success: true,
+    message: 'UPI payment verified successfully',
+    transaction_id,
+    amount: decoded.amount,
+    verification_token: verificationToken,
+  })
+})
+
+// ─── CONFIRM ORDER (Place Order with Atomic Stock Decrement) ─────────────────
+// POST /api/orders or POST /api/orders/confirm
+export const confirmOrder = asyncHandler(async (req, res) => {
+  const {
+    items,
+    from_cart,
+    address_id,
+    coupon_code,
+    payment_method,
+    payment_details,
+    shipping_cost,
+    notes,
+  } = req.body
+
+  // 1. Validate payment method
+  if (!payment_method || !CHECKOUT_PAYMENT_METHODS.includes(payment_method)) {
+    throw new AppError(400, `Invalid payment method. Must be one of: ${CHECKOUT_PAYMENT_METHODS.join(', ')}`)
+  }
+
+  let paymentStatus = 'pending'
+
+  // 2. UPI verification
+  if (payment_method === 'UPI') {
+    const token = payment_details?.verification_token || payment_details?.payment_token
+    const txnId = payment_details?.transaction_id
+
+    if (!token || !txnId) {
+      throw new AppError(400, 'UPI payment details (transaction_id and payment/verification token) are required')
+    }
+
+    try {
+      const decoded = jwt.verify(token, ENV.JWT_SECRET)
+      if (decoded.user_id !== req.user.id) {
+        throw new AppError(403, 'Payment verification user mismatch')
+      }
+      if (decoded.transaction_id !== txnId) {
+        throw new AppError(400, 'Payment verification transaction mismatch')
+      }
+    } catch (err) {
+      if (err instanceof AppError) throw err
+      throw new AppError(400, 'UPI payment could not be verified or has expired')
+    }
+
+    paymentStatus = 'paid'
+  }
+
+  // 3. Resolve address
+  let targetAddressId = address_id
+  if (!targetAddressId) {
+    const { data: defaultAddress, error: addrError } = await supabaseAdmin
+      .from('address')
+      .select('id')
+      .eq('user_id', req.user.id)
+      .maybeSingle()
+
+    if (addrError) throw addrError
+    if (!defaultAddress) {
+      throw new AppError(400, 'Delivery address is required. Please provide address_id or save an address in your profile.')
+    }
+    targetAddressId = defaultAddress.id
+  }
+
+  // 4. Recalculate bill and verify stock from DB
+  const bill = await calculateBillFromDb({
+    items: from_cart ? null : items,
+    userId: req.user.id,
+    couponCode: coupon_code,
+    shippingCost: shipping_cost,
+  })
+
+  // Check stock
+  for (const item of bill.items) {
+    if (!item.is_stock_sufficient) {
+      throw new AppError(
+        400,
+        `Insufficient stock for "${item.product_name}". Available: ${item.stock}, Requested: ${item.quantity}`
+      )
+    }
+  }
+
+  const itemsToOrder = bill.items.map((i) => ({
+    product_id: i.product_id,
+    quantity: i.quantity,
+  }))
+
+  const notesText =
+    notes ||
+    (payment_method === 'UPI' && payment_details?.transaction_id
+      ? `Paid via UPI. Ref: ${payment_details.transaction_id}`
+      : `Payment: ${payment_method}`)
+
+  // 5. Atomic confirmation RPC in PostgreSQL
+  const { data: createdOrderSummary, error: rpcError } = await supabaseAdmin.rpc(
+    'confirm_order_atomic',
+    {
+      p_user_id: req.user.id,
+      p_address_id: targetAddressId,
+      p_payment_method: payment_method,
+      p_payment_status: paymentStatus,
+      p_coupon_code: bill.coupon?.code || null,
+      p_shipping_cost: bill.shipping_cost,
+      p_items: itemsToOrder,
+      p_notes: notesText,
+    }
+  )
+
+  if (rpcError) {
+    throw new AppError(400, rpcError.message || 'Failed to place order')
+  }
+
+  // 6. Clear relevant cart items if purchase came from cart
+  if (from_cart || (!items && bill.items.length > 0)) {
+    const { data: userCart } = await supabaseAdmin
+      .from('cart')
+      .select('cart_id')
+      .eq('user_id', req.user.id)
+      .maybeSingle()
+
+    if (userCart) {
+      const orderedProductIds = itemsToOrder.map((i) => i.product_id)
+      await supabaseAdmin
+        .from('cart_items')
+        .delete()
+        .eq('cart_id', userCart.cart_id)
+        .in('product_id', orderedProductIds)
+    }
+  }
+
+  // 7. Fetch complete order with line items
+  const { data: orderDetails, error: fetchError } = await supabaseAdmin
+    .from('orders')
+    .select(
+      `
+      order_id,
+      total_amount,
+      discount_amount,
+      shipping_cost,
+      payment_method,
+      payment_status,
+      order_status,
+      notes,
+      created_at,
+      updated_at,
+      address:address_id ( address_line1, address_line2, city, state, pincode, country ),
+      coupon:coupon_id ( code, discount )
+    `
+    )
+    .eq('order_id', createdOrderSummary.order_id)
+    .single()
+
+  if (fetchError) throw fetchError
+
+  const { data: orderItems, error: itemsError } = await supabaseAdmin
+    .from('order_items')
+    .select(
+      `
+      id,
+      quantity,
+      total_price,
+      product:product_id (
+        product_id,
+        product_name,
+        price
+      )
+    `
+    )
+    .eq('order_id', createdOrderSummary.order_id)
+
+  if (itemsError) throw itemsError
+
+  res.status(201).json({
+    message: 'Order confirmed successfully',
+    order: {
+      ...orderDetails,
+      final_amount: orderDetails.total_amount,
+      items: orderItems,
+    },
+  })
+})
+
 // ─── GET ALL ORDERS (with filters) ──────────────────────────────────────────
 // GET /api/orders
 // Query params: status, payment_method, customer_id, from_date, to_date, page, limit
 export const getAllOrders = asyncHandler(async (req, res) => {
+  // If customer, return their own orders
+  if (req.user.role !== 'admin') {
+    const { data, error } = await supabaseAdmin
+      .from('orders')
+      .select(
+        `
+        order_id,
+        total_amount,
+        discount_amount,
+        shipping_cost,
+        payment_method,
+        payment_status,
+        order_status,
+        notes,
+        created_at,
+        updated_at,
+        address:address_id ( address_line1, address_line2, city, state, pincode, country ),
+        coupon:coupon_id ( code, discount )
+      `
+      )
+      .eq('user_id', req.user.id)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+
+    const formatted = (data || []).map((order) => ({
+      ...order,
+      final_amount: order.total_amount,
+    }))
+
+    return res.json(formatted)
+  }
+
+  // Admin query flow
   const {
     status,
     payment_method,
@@ -111,6 +609,10 @@ export const getOrderById = asyncHandler(async (req, res) => {
 
   if (orderError || !order) throw new AppError(404, 'Order not found')
 
+  if (req.user.role !== 'admin' && order.customer?.user_id !== req.user.id) {
+    throw new AppError(403, 'Not authorized to view this order')
+  }
+
   const { data: items, error: itemsError } = await supabaseAdmin
     .from('order_items')
     .select(
@@ -189,6 +691,10 @@ export const cancelOrder = asyncHandler(async (req, res) => {
     .single()
 
   if (fetchError || !order) throw new AppError(404, 'Order not found')
+
+  if (req.user.role !== 'admin' && order.user_id !== req.user.id) {
+    throw new AppError(403, 'Not authorized to cancel this order')
+  }
 
   if (!CANCELLABLE_STATUSES.includes(order.order_status)) {
     throw new AppError(

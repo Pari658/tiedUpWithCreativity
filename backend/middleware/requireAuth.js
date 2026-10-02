@@ -4,7 +4,7 @@ import { AppError } from '../utils/AppError.js'
 import { asyncHandler } from '../utils/asyncHandler.js'
 
 export const requireAuth = asyncHandler((req, res, next) => {
-  const token = req.cookies?.session
+  const token = req.cookies?.session || req.headers.authorization?.replace(/^Bearer\s+/i, '')
   if (!token) throw new AppError(401, 'Unauthorized')
 
   try {

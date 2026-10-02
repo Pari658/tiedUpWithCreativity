@@ -98,3 +98,43 @@ export const createProduct = asyncHandler(async (req, res) => {
 
   res.status(201).json(product)
 })
+
+export const getProductById = asyncHandler(async (req, res) => {
+  const { productId } = req.params
+
+  if (!productId) {
+    throw new AppError(400, 'Product ID is required')
+  }
+
+  // Get product
+  const { data: product, error: productError } = await supabaseAdmin
+    .from('product')
+    .select('*')
+    .eq('product_id', productId)
+    .eq('is_active', true)
+    .single()
+
+  if (productError) {
+    if (productError.code === 'PGRST116') {
+      throw new AppError(404, 'Product not found')
+    }
+
+    throw productError
+  }
+
+  // Get product images
+  const { data: images, error: imagesError } = await supabaseAdmin
+    .from('product_images')
+    .select('*')
+    .eq('product_id', productId)
+    .order('is_primary', { ascending: false })
+
+  if (imagesError) throw imagesError
+
+  const productWithImages = {
+    ...product,
+    product_images: images || []
+  }
+
+  res.status(200).json(productWithImages)
+})

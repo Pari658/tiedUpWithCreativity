@@ -7,20 +7,32 @@ import {
   markRefund,
   updateAdminNotes,
   getOrderStats,
+  calculateCheckoutBill,
+  generateUpiPayment,
+  verifyUpiPayment,
+  confirmOrder,
 } from '../controllers/order.controller.js'
 import { requireAuth, requireAdmin } from '../middleware/requireAuth.js'
 
 const router = Router()
 
-// All order routes are admin-only
-router.use(requireAuth, requireAdmin)
+// All order & checkout routes require authentication
+router.use(requireAuth)
 
-router.get('/stats', getOrderStats)
+// Customer / Shared routes
+router.post('/checkout', calculateCheckoutBill)
+router.post('/payment/upi/generate', generateUpiPayment)
+router.post('/payment/upi/verify', verifyUpiPayment)
+router.post('/confirm', confirmOrder)
+router.post('/', confirmOrder)
 router.get('/', getAllOrders)
 router.get('/:id', getOrderById)
-router.patch('/:id/status', updateOrderStatus)
 router.patch('/:id/cancel', cancelOrder)
-router.patch('/:id/refund', markRefund)
-router.patch('/:id/notes', updateAdminNotes)
+
+// Admin-only routes
+router.get('/stats', requireAdmin, getOrderStats)
+router.patch('/:id/status', requireAdmin, updateOrderStatus)
+router.patch('/:id/refund', requireAdmin, markRefund)
+router.patch('/:id/notes', requireAdmin, updateAdminNotes)
 
 export default router
